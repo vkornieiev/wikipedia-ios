@@ -1,4 +1,5 @@
 import MapKit
+import CoreLocation.CLLocation
 
 extension Array where Element == CLLocationCoordinate2D {
     func wmf_boundingRegion(with boundingMetersPerPoint: Double) -> MKCoordinateRegion {
@@ -28,5 +29,31 @@ extension Array where Element == CLLocationCoordinate2D {
             region.span.longitudeDelta = 0.01
         }
         return region
+    }
+}
+
+extension CLLocation {
+    /// A convenient way to display user-friendly formatted location value using ISO 6709 standard.
+    /// Example:
+    /// "22°54'48"S 43°12'2"W"
+    var isoFormattedString: String { latitude + " " + longitude }
+
+    private var latitude: String {
+        let (degrees, minutes, seconds) = coordinate.latitude.dms
+        return String(format: "%d°%d'%d\"%@", abs(degrees), minutes, seconds, degrees >= 0 ? "N" : "S")
+    }
+
+    private var longitude: String {
+        let (degrees, minutes, seconds) = coordinate.longitude.dms
+        return String(format: "%d°%d'%d\"%@", abs(degrees), minutes, seconds, degrees >= 0 ? "E" : "W")
+    }
+}
+
+private extension BinaryFloatingPoint {
+    var dms: (degrees: Int, minutes: Int, seconds: Int) {
+        var seconds = Int(self * 3600)
+        let degrees = seconds / 3600
+        seconds = abs(seconds % 3600)
+        return (degrees, seconds / 60, seconds % 60)
     }
 }

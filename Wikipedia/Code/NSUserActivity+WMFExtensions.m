@@ -1,3 +1,4 @@
+#import <CoreLocation/CoreLocation.h>
 #import <WMF/NSUserActivity+WMFExtensions.h>
 #import <WMF/WMF-Swift.h>
 
@@ -42,9 +43,17 @@ __attribute__((annotate("returns_localized_nsstring"))) static inline NSString *
 }
 
 + (instancetype)wmf_pageActivityWithName:(NSString *)pageName {
+    return [NSUserActivity wmf_pageActivityWithName:pageName additionalInfo:nil];
+}
+
++ (instancetype)wmf_pageActivityWithName:(NSString *)pageName
+                          additionalInfo:(nullable NSDictionary *)activityInfo {
     NSUserActivity *activity = [self wmf_activityWithType:[pageName lowercaseString]];
     activity.title = wmf_localizationNotNeeded(pageName);
-    activity.userInfo = @{@"WMFPage": pageName};
+    
+    NSMutableDictionary *userInfo = activityInfo ? [activityInfo mutableCopy] : [NSMutableDictionary new];
+    userInfo[@"WMFPage"] = pageName;
+    activity.userInfo = [userInfo copy];
 
     NSMutableSet *set = [activity.keywords mutableCopy];
     [set addObjectsFromArray:[pageName componentsSeparatedByString:@" "]];
@@ -62,14 +71,17 @@ __attribute__((annotate("returns_localized_nsstring"))) static inline NSString *
 + (instancetype)wmf_placesActivityWithURL:(NSURL *)activityURL {
     NSURLComponents *components = [NSURLComponents componentsWithURL:activityURL resolvingAgainstBaseURL:NO];
     NSURL *articleURL = nil;
+    NSMutableDictionary *additionalInfo = [NSMutableDictionary new];
     for (NSURLQueryItem *item in components.queryItems) {
         if ([item.name isEqualToString:@"WMFArticleURL"]) {
             NSString *articleURLString = item.value;
             articleURL = [NSURL URLWithString:articleURLString];
-            break;
+        } else {
+            additionalInfo[item.name] = item.value;
         }
     }
-    NSUserActivity *activity = [self wmf_pageActivityWithName:@"Places"];
+    NSUserActivity *activity = [self wmf_pageActivityWithName:@"Places"
+                                               additionalInfo:additionalInfo];
     activity.webpageURL = articleURL;
     return activity;
 }
@@ -266,6 +278,25 @@ __attribute__((annotate("returns_localized_nsstring"))) static inline NSString *
 
 - (NSURL *)wmf_contentURL {
     return self.userInfo[@"WMFURL"];
+}
+
+- (NSString *)wmf_contentTitle {
+    NSString *title = self.userInfo[@"title"];
+    if ([title isKindOfClass:NSString.class] && title.length > 0) {
+        return [title stringByRemovingPercentEncoding];
+    }
+    return nil;
+}
+
+- (CLLocation *)wmf_contentLocation {
+    NSString *latString = self.userInfo[@"lat"];
+    NSString *longString = self.userInfo[@"long"];
+    if (latString && longString) {
+        CLLocationDegrees latitute = [latString doubleValue];
+        CLLocationDegrees longitude = [longString doubleValue];
+        return [[CLLocation alloc] initWithLatitude:latitute longitude:longitude];
+    }
+    return nil;
 }
 
 + (NSURLComponents *)wmf_baseURLComponentsForActivityOfType:(WMFUserActivityType)type {
